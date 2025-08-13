@@ -1,0 +1,54 @@
+name: CMake (Win/macOS/Linux)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install deps (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build xorg-dev libgl1-mesa-dev \
+            libx11-dev libxext-dev libxrandr-dev libxi-dev libxinerama-dev \
+            libxcursor-dev libxkbcommon-dev libwayland-dev wayland-protocols
+
+      - name: Install deps (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update >/dev/null || true
+          brew install ninja || true
+
+      - name: Install deps (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja -y
+
+      - name: Configure (CMake + Ninja)
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Run executable (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: ./build/katzu
+
+      - name: Run executable (Windows)
+        if: runner.os == 'Windows'
+        run: .\build\katzu.exe
